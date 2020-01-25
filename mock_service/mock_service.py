@@ -7,10 +7,12 @@ from starlette.applications import Starlette
 from starlette.background import BackgroundTask
 from starlette.responses import JSONResponse
 import uvicorn
+import logging
 
 app = Starlette()
 client = httpx.AsyncClient()
 CALLBACK_URL = os.environ["CALLBACK_URL"]
+logger = logging.getLogger(__name__)
 
 
 @app.route("/api/endpoint", methods=["POST"])
@@ -34,6 +36,28 @@ async def trigger_webhook(payload):
     }
     await client.get(CALLBACK_URL, params=params)
 
+@app.route("/auth", methods=["POST"])
+async def auth(request):
+
+    data = await request.json()
+    try:
+        usernameJson = data['username']
+        passwordJson = data['password']
+    except KeyError:
+        logger.warning("Auth payload did not contain username and password")
+        return JSONResponse(False)
+
+    authHardcoded = {"joe-packham" : "pwd1", "nisarg-mehta" : "pwd2", "fabio-tamagno" : "pwd3"}
+    password = authHardcoded.get(usernameJson)
+    if password == None:
+        logger.warning("Username not found")
+        return JSONResponse(False)
+
+    if password == passwordJson:
+        return JSONResponse(True)
+    else:
+        logger.warning("Password does not match")
+        return JSONResponse(False)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
